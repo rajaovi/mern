@@ -172,13 +172,9 @@ const resetPassword = async (req, res) => {
     const { token } = req.params;
     const { password } = req.body;
 
-    console.log("token", token);
-
     const user = await User.findOne({
       resetPasswordToken: token,
     });
-
-    console.log("User Reset", user);
 
     if (!user) {
       return res
