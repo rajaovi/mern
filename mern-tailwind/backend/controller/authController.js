@@ -1,42 +1,44 @@
 import User from "../models/userModal.js";
 import bcryptjs from "bcryptjs";
-import generateTokenAndSetCookie  from "../utils/generateTokenAndSetCookie.js";
-import { sendVerificationEmail } from "../mailTrap/email.js";
+import generateTokenAndSetCookie from "../utils/generateTokenAndSetCookie.js";
+import { sendVerificationEmail, sendWelcomeEmail } from "../mailTrap/email.js";
 
 const signup = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { email, password, name } = req.body;
 
   try {
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Please fill all fields" });
+    if (!email || !password || !name) {
+      throw new Error("All fields are required");
     }
 
-    const existingUser = await User.findOne({ email });
+    const userAlreadyExists = await User.findOne({ email });
+    console.log("userAlreadyExists", userAlreadyExists);
 
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+    if (userAlreadyExists) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User already exists" });
     }
 
     const hashedPassword = await bcryptjs.hash(password, 10);
     const verificationToken = Math.floor(
       100000 + Math.random() * 900000
     ).toString();
-    const user = await User.create({
-      name,
+
+    const user = new User({
       email,
       password: hashedPassword,
+      name,
       verificationToken,
-      verificationTokenExpiresAt: Date.now() + 24 * 60 * 1000, // 24 hours
+      verificationTokenExpiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
     });
 
     await user.save();
 
-    // JWT Token generation
+    // jwt
     generateTokenAndSetCookie(res, user._id);
-    sendVerificationEmail(
-      user.email,
-      verificationToken
-    );
+
+    await sendVerificationEmail(user.email, verificationToken);
 
     res.status(201).json({
       success: true,
@@ -46,15 +48,46 @@ const signup = async (req, res) => {
         password: undefined,
       },
     });
-
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
-  catch (error) {
-    console.log(error);
-    return res.status(400).json({ message: error.message });
-  }
+};
 
-     res.send("Sign Up");
-}
+const verifyEmail = async (req, res) => {
+  const { code } = req.body;
+  try {
+    const user = await User.findOne({
+      verificationToken: code,
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired verification code",
+      });
+      ``;
+    }
+
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    user.verificationTokenExpiresAt = undefined;
+    await user.save();
+
+    await sendWelcomeEmail(user.email, user.name);
+
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully",
+      user: {
+        ...user._doc,
+        password: undefined,
+      },
+    });
+  } catch (error) {
+    console.log("error in verifyEmail ", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 
 const login = async (req, res) => {
   res.send("Sign Up");
@@ -64,4 +97,4 @@ const logout = async (req, res) => {
   res.send("Sign Up");
 };
 
-export { signup, login, logout };
+export { signup, login, logout, verifyEmail };
