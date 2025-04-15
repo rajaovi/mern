@@ -1,5 +1,8 @@
 import React from 'react'
+import { Routes, Route } from "react-router-dom";
 import FloatingShape from "./components/FloatingShapes";
+import SignUpPage from "./pages/SignUpPage";
+import LoginPage from "./pages/LoginPage";
 
 const App = () => {
   return (
@@ -25,8 +28,13 @@ const App = () => {
         left="-10%"
         delay={2}
       />
+      <Routes>
+        <Route path="/" element={"Home"} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/login" element={<LoginPage />} />
+      </Routes>
     </section>
   );
-}
+};
 
 export default App
